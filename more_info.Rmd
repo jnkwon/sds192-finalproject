@@ -1,0 +1,136 @@
+---
+title: "**More information**"
+author: "Jeny Kwon & Dayana Meza"
+date: "Last updated on `r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    df_print: kable
+---
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+# Set R chunk default options:
+# -do not output all R messages in html report
+# -do not output all R warnings in html report
+# -set default figure widths and heights
+knitr::opts_chunk$set(
+  message = FALSE, warning = FALSE, fig.width = 16/2, fig.height = 9/2
+)
+```
+
+```{r, echo = FALSE}
+library(janitor)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(ggfittext)
+library(formattable)
+```
+
+```{r}
+breach <- read.csv("breach_database.csv")
+states <- read.csv("us_states.csv")
+state <- read.csv("us_list.csv")
+states_data <- states %>% 
+  clean_names() %>% 
+  # Change from factor to character to join (factors had different levels)
+  mutate(state_chr = as.character(state)) %>% 
+  select(state_chr)
+
+# Organize data: clean column names, select necessary columns, and filter
+# Focusing on a 10-year period (2008-2018)
+# 2019 Excluded because data through all of December not available yet
+breach_data <- breach %>%
+  clean_names() %>%
+  select("company", "state", "type_of_breach", "type_of_organization", 
+         "total_records","year_of_breach") %>%
+  filter(year_of_breach <= 2018 & year_of_breach >= 2008) %>%
+  filter(total_records != "" | total_records != 0) %>%
+  filter(state != "") %>% 
+  # Change from factor to character to join (factors had different levels)
+  mutate(state_chr = as.character(state)) %>% 
+  # Join with U.S. state & territory data to exclude international data breaches
+  # Includes District of Columbia
+  inner_join(states_data, by="state_chr")
+
+# breach_data
+# states_data
+```
+
+<!--
+Comments in HTML are like this! 
+-->
+
+## Top Five Biggest Breaches
+
+The top five biggest data breaches by organization between 2008 and 2018 are shown below. Three of the five companies experienced a data breach by hacking and the other two by unintended disclosure. In both cases, Yahoo, River City Media, FriendFinder, MySpace, and Exactis could have prevented the data breach by being more careful and having better security. The table also shows that all the top breaches happened between 2016 and 2018, which would explain the spike in total records affected between that time period. The graph combines the two separate incidents that Yahoo experienced. Yahoo’s data breach is significantly larger than the second biggest data breach. Both of Yahoo's breaches, which occurred in 2016, can be clearly seen in the first graph, “Total Records Lost Per Year in Billions.” These data breaches shows that even established companies, such as Yahoo, can experience a breach; therefore, consumers should not feel at ease just because of the size or age of the organizations they interact with. 
+
+```{r}
+# Top Five Biggest Breaches
+biggest_breach <- breach_data %>% 
+  top_n(n = 6, wt = total_records) %>% 
+  mutate(total_records_billions = total_records/1000000000) %>% 
+  arrange(desc(total_records_billions)) %>% 
+  group_by(company)
+
+ggplot(biggest_breach, aes(x = reorder(company, total_records_billions), y = total_records_billions, fill = type_of_breach)) + 
+  geom_col() + 
+  labs(fill = "Type of Breach", title = "Top Five Biggest Breaches In Billions", 
+       subtitle = "Between 2008 and 2018", x="Name of Company",
+       y = "Total Records Lost") + 
+  scale_fill_manual(values = c("DISC" ="red", "HACK" = "steelblue"), name = "Type of Breach", 
+                    labels=c("Unintended Disclosure", "Hacking")) + coord_flip() 
+```
+
+```{r}
+# Table showing the years of top breaches
+biggest_breach_table <- biggest_breach %>% 
+  select(company, state, year_of_breach, total_records_billions)
+
+formattable(biggest_breach_table, align = c("l", "c", "c", "c"))
+```
+
+## Data Breach Incidents by Type of Organization
+
+It is also important to look at what types of organizations are affected the most, so consumers know where their data is at risk. The healthcare industry seems to be affected the most every year. Consumers should be concerned since legally their medical records should be confidential. It is interesting to know that healthcare medical providers are affected the most often. This raises the question as to what kind of medical data would be of interest. All type of businesses also seem to be affected quite often. 
+
+```{r, fig.width=10, fig.height=9}
+# Data Breach Incidents By Organization
+options(scipen=999)
+breach_org <- breach_data %>% 
+  group_by(year_of_breach, type_of_organization) %>% 
+  summarize(n = n())
+
+ggplot(data = breach_org, aes(x = year_of_breach, y = n, fill = type_of_organization)) +
+  geom_col(color = "black") +
+  labs(color = "Type of Breach", title = "Number Data Breach Incidents", subtitle = "By Type of Industry Between 2008 and 2018", 
+       x ="Year of Breach", y = "Number of Incidents") + 
+  scale_fill_discrete(name = "Type of Industry", 
+                      labels = c("Businesses Financial and Insurance Services", "Businesses Other", "Businesses Retail/Merchant", 
+                                 "Educational Institutions", "Government and Military", "Healthcare Medical Providers", "Nonprofit Organizations")) +
+  scale_x_continuous(breaks= seq(2008, 2018, by=1)) + theme(legend.position="bottom") + 
+  theme(plot.title = element_text(size = 17)) + theme(plot.subtitle = element_text(size = 14)) + 
+  theme(axis.title.x = element_text(size = 14 )) + theme(axis.title.y = element_text(size = 15 ))
+
+```
+
+## Data Breach Incidents by Type of Occurance
+
+The information so far shows why consumers should be concerned about data breaches. The last graph will help organizations better prevent future data breaches. As of 2018, the top three types of data breaches are hacking, unintended disclosure, and physical loss. Organizations should focus on securing themselves against these threats first as they are the most prevalent. 
+
+```{r}
+# Data Breach Incidents by Type of Occurence 
+breach_type_occurence <- breach_data %>% 
+  group_by(year_of_breach, type_of_breach) %>% 
+  summarize(n = n())
+
+ggplot(data = breach_type_occurence, aes(x = year_of_breach, y = n, color = type_of_breach)) + 
+  geom_line(size = 0.8) + scale_x_continuous(breaks= seq(2008, 2018, by=1)) + geom_point(size = 1.3, color = "black") + 
+  labs(color = "Type of Breach", title = "Number of Data Breach Incidents", subtitle = "By Type of Breach Between 2008 and 2018", 
+       x ="Year of Breach", y = "Number of Incidents") +  
+  scale_color_discrete(labels = c("Payment Card Fraud", "Unintended Disclosure", "Hacking or Malware", "Insider", 
+                                  "Physical Loss", "Portable device", "Stationary device", "Unknown or other"))
+  
+```
