@@ -80,7 +80,7 @@ ggplot(biggest_breach, aes(x = reorder(company, total_records_billions), y = tot
   labs(fill = "Type of Breach", title = "Top Five Biggest Breaches In Billions", 
        subtitle = "Between 2008 and 2018", x="Name of Company",
        y = "Total Records Lost") + 
-  scale_fill_manual(values = c("DISC" ="red", "HACK" = "steelblue"), name = "Type of Breach", 
+  scale_fill_manual(values = c("DISC" ="darkgreen", "HACK" = "steelblue"), name = "Type of Breach", 
                     labels=c("Unintended Disclosure", "Hacking")) + coord_flip() 
 ```
 
